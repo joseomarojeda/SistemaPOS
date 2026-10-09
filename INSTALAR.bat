@@ -26,14 +26,16 @@ exit /b 1
 echo [OK] Node.js encontrado: %NODE_EXE%
 
 echo.
-echo Creando accesos directos (escritorio e inicio automatico)...
+echo Creando el acceso directo del escritorio y desactivando el inicio automatico...
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$s = New-Object -ComObject WScript.Shell;" ^
-  "foreach ($dir in @([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('Startup'))) {" ^
-  "  $l = $s.CreateShortcut((Join-Path $dir 'Punto de Venta.lnk'));" ^
-  "  $l.TargetPath = '%~dp0INICIAR.bat'; $l.WorkingDirectory = '%~dp0';" ^
-  "  $l.IconLocation = '%SystemRoot%\System32\shell32.dll,43'; $l.WindowStyle = 7; $l.Save() }"
-echo [OK] Accesos directos creados.
+  "$dir = [Environment]::GetFolderPath('Desktop');" ^
+  "$l = $s.CreateShortcut((Join-Path $dir 'Punto de Venta.lnk'));" ^
+  "$l.TargetPath = '%~dp0INICIAR.bat'; $l.WorkingDirectory = '%~dp0';" ^
+  "$l.IconLocation = '%SystemRoot%\System32\shell32.dll,43'; $l.WindowStyle = 7; $l.Save();" ^
+  "$auto = Join-Path ([Environment]::GetFolderPath('Startup')) 'Punto de Venta.lnk';" ^
+  "if (Test-Path -LiteralPath $auto) { Remove-Item -LiteralPath $auto -Force }"
+echo [OK] Acceso directo creado; inicio automatico desactivado.
 
 echo.
 echo Abriendo el puerto 3000 en el Firewall para que entren celulares y tablets.
@@ -43,14 +45,13 @@ echo [OK] Firewall configurado.
 
 echo.
 echo ==============================================
-echo   LISTO. El sistema arrancara ahora y tambien
-echo   cada vez que enciendas la computadora.
+echo   LISTO. El sistema solo iniciara cuando abras
+echo   el icono Punto de Venta del escritorio.
 echo   PIN administrador: 1234   PIN vendedor: 1111
 echo   (cambialos en el menu Usuarios)
 echo ==============================================
 echo.
 pause
-start "" "%~dp0INICIAR.bat"
 exit /b 0
 
 :buscar_node

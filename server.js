@@ -366,6 +366,14 @@ ruta('GET', /^\/api\/clientes$/, (req) => {
 });
 
 // Ventas
+ruta('GET', /^\/api\/ventas\/folio$/, (req) => {
+  requiere(req);
+  const fecha = fechaLocal(new Date());
+  const numero = db.prepare(`SELECT COALESCE(MAX(ticket_number), 0) + 1 AS numero
+    FROM ventas WHERE date(fecha) = ?`).get(fecha).numero;
+  return { ticket_number: numero };
+});
+
 ruta('POST', /^\/api\/ventas$/, async (req) => {
   const u = requiere(req);
   const b = await leerJSON(req);

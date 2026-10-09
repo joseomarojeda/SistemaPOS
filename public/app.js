@@ -15,6 +15,7 @@ const estado = {
   productos: [],
   categorias: [],
   carrito: leerJSON('pos_carrito') || [],
+  ticketNumber: null,
   categoria: 'Todas',
   busqueda: '',
 };
@@ -148,7 +149,9 @@ async function iniciar() {
 
 // ---------- Vender ----------
 async function vistaVenta() {
-  estado.productos = await api('/productos');
+  const [productos, folio] = await Promise.all([api('/productos'), api('/ventas/folio')]);
+  estado.productos = productos;
+  estado.ticketNumber = folio.ticket_number;
   limpiarCarrito(true);
   $('#vista').innerHTML = `
     <div class="venta">
@@ -256,7 +259,7 @@ function pintarCarritos() {
 
 function pintarCarrito(el, enModal) {
   el.innerHTML = `
-    <h2>Venta actual ${enModal ? '<button class="icon-btn" data-cerrar aria-label="Cerrar">✕</button>' : ''}</h2>
+    <h2>Venta actual <span class="etiqueta">Ticket #${estado.ticketNumber}</span> ${enModal ? '<button class="icon-btn" data-cerrar aria-label="Cerrar">✕</button>' : ''}</h2>
     <div class="carrito-lista">${estado.carrito.length ? estado.carrito.map((l) => `
       <div class="linea">
         <span class="n">${esc(l.nombre)}</span><span class="sub num">${dinero(l.precio * l.cantidad)}</span>
@@ -278,7 +281,15 @@ function pintarCarrito(el, enModal) {
   };
 }
 
-function cobrar() {
+async function cobrar() {
+  try {
+    const folio = await api('/ventas/folio');
+    estado.ticketNumber = folio.ticket_number;
+    pintarCarritos();
+  } catch (err) {
+    aviso(err.message, 'error');
+    return;
+  }
   const total = totalCarrito();
   let metodo = 'efectivo';
   const billetes = [...new Set([total, ...[20, 50, 100, 200, 500, 1000].filter((b) => b > total).slice(0, 4)])];
@@ -324,6 +335,7 @@ function cobrar() {
             items: estado.carrito.map(({ producto_id, cantidad }) => ({ producto_id, cantidad })),
           },
         });
+        estado.ticketNumber = venta.ticket_number + 1;
         estado.carrito = [];
         guardar('pos_carrito', []);
         mostrarTicket(venta, true);

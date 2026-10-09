@@ -7,8 +7,8 @@ INSTALAR (solo una vez)
      ventana azul/negra y presiona Enter. Si pregunta por pegar varias
      lineas, elige "Pegar de todos modos".
   3. Acepta los permisos que pida Windows (instalar Node.js y el firewall).
-  Al terminar se abre el sistema en el navegador, queda el icono
-  "Punto de Venta" en el escritorio y arranca solo al encender la PC.
+  Al terminar queda el icono "Punto de Venta" en el escritorio.
+  El sistema no arranca solo al encender la PC: abre el icono para iniciarlo.
 
 USAR
   - En esta computadora: icono "Punto de Venta" del escritorio.
@@ -30,7 +30,8 @@ TUS DATOS
   Todo se guarda en la carpeta "datos" (archivo pos.db).
   Al cobrar puedes registrar opcionalmente el nombre y teléfono del cliente;
   sus compras quedan vinculadas y el administrador puede consultarlas en
-  Menu > Clientes. El folio del ticket empieza en 1 y se reinicia cada día.
+  Menu > Clientes. El folio del siguiente ticket se muestra en Venta actual,
+  empieza en 1 y se reinicia cada día.
   Cada dia se crea un respaldo en datos\respaldos (se guardan 30 dias).
   Copia esa carpeta a una USB de vez en cuando.
 

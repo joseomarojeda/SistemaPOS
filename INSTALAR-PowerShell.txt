@@ -2,17 +2,15 @@
 $dir = "$env:USERPROFILE\Documents\SistemaPOS"
 Get-ChildItem $dir -Recurse | Unblock-File
 winget install --id OpenJS.NodeJS.LTS -e --accept-source-agreements --accept-package-agreements
-$node = "$env:ProgramFiles\nodejs\node.exe"
-if (-not (Test-Path $node)) { $node = (Get-Command node -ErrorAction SilentlyContinue).Source }
 $ws = New-Object -ComObject WScript.Shell
-foreach ($d in @([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('Startup'))) {
-  $l = $ws.CreateShortcut("$d\Punto de Venta.lnk")
-  $l.TargetPath = $node
-  $l.Arguments = '--disable-warning=ExperimentalWarning server.js --abrir'
-  $l.WorkingDirectory = $dir
-  $l.IconLocation = "$env:SystemRoot\System32\shell32.dll,43"
-  $l.WindowStyle = 7
-  $l.Save()
-}
+$desktop = [Environment]::GetFolderPath('Desktop')
+$l = $ws.CreateShortcut("$desktop\Punto de Venta.lnk")
+$l.TargetPath = "$dir\INICIAR.bat"
+$l.WorkingDirectory = $dir
+$l.IconLocation = "$env:SystemRoot\System32\shell32.dll,43"
+$l.WindowStyle = 7
+$l.Save()
+$auto = Join-Path ([Environment]::GetFolderPath('Startup')) 'Punto de Venta.lnk'
+if (Test-Path -LiteralPath $auto) { Remove-Item -LiteralPath $auto -Force }
 Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -Command "New-NetFirewallRule -DisplayName PuntoDeVenta -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow"'
-Start-Process $node -ArgumentList '--disable-warning=ExperimentalWarning server.js --abrir' -WorkingDirectory $dir
+Write-Host 'Instalación lista. Inicia el sistema desde el icono Punto de Venta del escritorio.'
