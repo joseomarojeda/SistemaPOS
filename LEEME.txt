@@ -28,6 +28,9 @@ LECTOR DE CODIGO DE BARRAS
 
 TUS DATOS
   Todo se guarda en la carpeta "datos" (archivo pos.db).
+  Al cobrar puedes registrar opcionalmente el nombre y teléfono del cliente;
+  sus compras quedan vinculadas y el administrador puede consultarlas en
+  Menu > Clientes. El número de ticket es el folio de cada venta.
   Cada dia se crea un respaldo en datos\respaldos (se guardan 30 dias).
   Copia esa carpeta a una USB de vez en cuando.
 

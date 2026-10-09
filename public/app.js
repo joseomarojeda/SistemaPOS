@@ -115,7 +115,7 @@ $('#velo').addEventListener('click', () => abrirMenu(false));
 $('#menu').addEventListener('click', () => abrirMenu(false));
 window.addEventListener('hashchange', enrutar);
 
-const VISTAS = { venta: vistaVenta, ventas: vistaVentas, productos: vistaProductos, corte: vistaCorte, usuarios: vistaUsuarios, ajustes: vistaAjustes };
+const VISTAS = { venta: vistaVenta, ventas: vistaVentas, clientes: vistaClientes, productos: vistaProductos, corte: vistaCorte, usuarios: vistaUsuarios, ajustes: vistaAjustes };
 
 function enrutar() {
   if (!estado.usuario) return;
@@ -285,6 +285,10 @@ function cobrar() {
   const caja = abrirModal(`
     <h2>Cobrar <button class="icon-btn" data-cerrar aria-label="Cerrar">✕</button></h2>
     <div class="total-fila" style="padding-top:0"><span>Total</span><span class="num">${dinero(total)}</span></div>
+    <label for="cliente-nombre">Nombre del cliente (opcional)</label>
+    <input id="cliente-nombre" maxlength="120" autocomplete="name">
+    <label for="cliente-telefono">Teléfono (opcional)</label>
+    <input id="cliente-telefono" type="tel" maxlength="30" inputmode="tel" autocomplete="tel">
     <div class="metodos">${Object.entries(METODOS).map(([k, v]) => `<button data-metodo="${k}" class="${k === metodo ? 'activo' : ''}">${v}</button>`).join('')}</div>
     <div id="efectivo">
       <label for="recibido">Recibido</label>
@@ -312,7 +316,13 @@ function cobrar() {
       try {
         const venta = await api('/ventas', {
           method: 'POST',
-          body: { metodo, recibido: Number(recibido.value) || total, items: estado.carrito.map(({ producto_id, cantidad }) => ({ producto_id, cantidad })) },
+          body: {
+            metodo,
+            recibido: Number(recibido.value) || total,
+            cliente_nombre: $('#cliente-nombre', caja).value,
+            cliente_telefono: $('#cliente-telefono', caja).value,
+            items: estado.carrito.map(({ producto_id, cantidad }) => ({ producto_id, cantidad })),
+          },
         });
         estado.carrito = [];
         guardar('pos_carrito', []);
@@ -332,7 +342,8 @@ function htmlTicket(v) {
   const a = estado.ajustes;
   return `<div class="ticket">
     <div class="c"><strong>${esc(a.negocio)}</strong>${a.direccion ? '<br>' + esc(a.direccion) : ''}</div>
-    <hr>Folio: ${v.id}<br>${esc(v.fecha)}<br>Atendió: ${esc(v.vendedor)}
+    <hr>Ticket: #${v.id}<br>${esc(v.fecha)}<br>Atendió: ${esc(v.vendedor)}
+    ${v.cliente_nombre || v.cliente_telefono ? `<br>Cliente: ${esc(v.cliente_nombre || 'Sin nombre')}${v.cliente_telefono ? `<br>Teléfono: ${esc(v.cliente_telefono)}` : ''}` : ''}
     ${v.cancelada ? '<br><strong>*** VENTA CANCELADA ***</strong>' : ''}<hr>
     <table>${v.items.map((i) => `<tr><td>${i.cantidad} ${esc(i.nombre)}</td><td class="der">${dinero(i.subtotal)}</td></tr>`).join('')}</table><hr>
     <table><tr><td><strong>TOTAL</strong></td><td class="der"><strong>${dinero(v.total)}</strong></td></tr>
@@ -373,16 +384,32 @@ async function vistaVentas() {
     <div class="fila" style="margin-bottom:12px"><input type="date" id="fecha" value="${fecha}" style="max-width:200px">
       <span class="muted">${validas.length} ventas · <strong>${dinero(validas.reduce((s, v) => s + v.total, 0))}</strong></span></div>
     <div class="panel tabla-wrap"><table>
-      <thead><tr><th>Folio</th><th>Hora</th><th>Vendedor</th><th>Pago</th><th class="der">Total</th></tr></thead>
+      <thead><tr><th>Ticket</th><th>Hora</th><th>Cliente</th><th>Vendedor</th><th>Pago</th><th class="der">Total</th></tr></thead>
       <tbody>${ventas.map((v) => `<tr class="clic ${v.cancelada ? 'cancelada' : ''}" data-id="${v.id}">
-        <td>#${v.id}</td><td>${v.fecha.slice(11, 16)}</td><td>${esc(v.vendedor)}</td><td>${METODOS[v.metodo]}</td>
-        <td class="der num">${dinero(v.total)}</td></tr>`).join('') || '<tr><td colspan="5" class="vacio">Sin ventas este día.</td></tr>'}</tbody>
+        <td>#${v.id}</td><td>${v.fecha.slice(11, 16)}</td><td>${esc(v.cliente_nombre || 'Público en general')}</td>
+        <td>${esc(v.vendedor)}</td><td>${METODOS[v.metodo]}</td><td class="der num">${dinero(v.total)}</td></tr>`).join('') || '<tr><td colspan="6" class="vacio">Sin ventas este día.</td></tr>'}</tbody>
     </table></div>`;
   $('#fecha').addEventListener('change', (e) => { estado.fechaVentas = e.target.value; vistaVentas(); });
   $('tbody').addEventListener('click', async (e) => {
     const tr = e.target.closest('tr[data-id]');
     if (tr) mostrarTicket(await api('/ventas/' + tr.dataset.id), false);
   });
+}
+
+// ---------- Clientes ----------
+async function vistaClientes() {
+  const clientes = await api('/clientes');
+  $('#vista').innerHTML = `
+    <h2>Clientes</h2>
+    <div class="panel tabla-wrap"><table>
+      <thead><tr><th>Nombre</th><th>Teléfono</th><th>Primera compra</th><th class="der">Compras</th><th>Última compra</th></tr></thead>
+      <tbody>${clientes.map((c) => `<tr>
+        <td>${esc(c.nombre || 'Sin nombre')}</td><td>${esc(c.telefono || '—')}</td>
+        <td>${c.primera_compra ? esc(c.primera_compra.slice(0, 10)) : '—'}</td>
+        <td class="der num">${c.numero_compras}</td>
+        <td>${c.ultima_compra ? esc(c.ultima_compra.slice(0, 10)) : '—'}</td>
+      </tr>`).join('') || '<tr><td colspan="5" class="vacio">Aún no hay clientes registrados.</td></tr>'}</tbody>
+    </table></div>`;
 }
 
 // ---------- Productos ----------

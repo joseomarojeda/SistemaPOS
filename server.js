@@ -46,10 +46,20 @@ db.exec(`
     creado TEXT NOT NULL DEFAULT (datetime('now','localtime'))
   );
 
+  CREATE TABLE IF NOT EXISTS clientes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT,
+    telefono TEXT,
+    primera_compra TEXT,
+    numero_compras INTEGER NOT NULL DEFAULT 0,
+    ultima_compra TEXT
+  );
+
   CREATE TABLE IF NOT EXISTS ventas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     fecha TEXT NOT NULL DEFAULT (datetime('now','localtime')),
     usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+    cliente_id INTEGER REFERENCES clientes(id),
     total REAL NOT NULL,
     metodo TEXT NOT NULL CHECK (metodo IN ('efectivo','tarjeta','transferencia')),
     recibido REAL NOT NULL DEFAULT 0,
@@ -87,7 +97,12 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_ventas_fecha ON ventas(fecha);
   CREATE INDEX IF NOT EXISTS idx_detalle_venta ON venta_detalle(venta_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_clientes_telefono ON clientes(telefono) WHERE telefono IS NOT NULL;
 `);
+
+if (!db.prepare('PRAGMA table_info(ventas)').all().some((columna) => columna.name === 'cliente_id')) {
+  db.exec('ALTER TABLE ventas ADD COLUMN cliente_id INTEGER REFERENCES clientes(id)');
+}
 
 // Datos iniciales la primera vez
 if (db.prepare('SELECT COUNT(*) AS n FROM usuarios').get().n === 0) {
@@ -328,6 +343,12 @@ ruta('DELETE', /^\/api\/productos\/(\d+)$/, (req, q, [id]) => {
   return { ok: true };
 });
 
+// Clientes
+ruta('GET', /^\/api\/clientes$/, (req) => {
+  requiere(req, 'admin');
+  return db.prepare('SELECT * FROM clientes ORDER BY ultima_compra DESC, nombre COLLATE NOCASE').all();
+});
+
 // Ventas
 ruta('POST', /^\/api\/ventas$/, async (req) => {
   const u = requiere(req);
@@ -335,8 +356,44 @@ ruta('POST', /^\/api\/ventas$/, async (req) => {
   const items = Array.isArray(b.items) ? b.items : [];
   if (!items.length) throw new HttpError(400, 'La venta no tiene productos');
   const metodo = ['efectivo', 'tarjeta', 'transferencia'].includes(b.metodo) ? b.metodo : 'efectivo';
+  const nombreCliente = String(b.cliente_nombre || '').trim();
+  const telefonoIngresado = String(b.cliente_telefono || '').trim();
+  const telefonoCliente = telefonoIngresado.replace(/\D/g, '') || null;
+  if (nombreCliente.length > 120) throw new HttpError(400, 'El nombre del cliente no puede exceder 120 caracteres');
+  if (telefonoIngresado && (!telefonoCliente || telefonoCliente.length > 20)) {
+    throw new HttpError(400, 'El teléfono del cliente debe contener hasta 20 números');
+  }
 
   const ventaId = transaccion(() => {
+    let clienteId = null;
+    if (nombreCliente || telefonoCliente) {
+      const clientePorTelefono = telefonoCliente
+        ? db.prepare('SELECT * FROM clientes WHERE telefono = ?').get(telefonoCliente)
+        : null;
+      const clientesPorNombre = nombreCliente
+        ? db.prepare('SELECT * FROM clientes WHERE nombre = ? COLLATE NOCASE').all(nombreCliente)
+        : [];
+      const clientePorNombre = clientesPorNombre.length === 1 ? clientesPorNombre[0] : null;
+
+      if (clientesPorNombre.length > 1 && !clientePorTelefono) {
+        throw new HttpError(409, 'Hay varios clientes con ese nombre; proporciona su teléfono para identificarlo');
+      }
+      if (clientePorTelefono && clientePorNombre && clientePorTelefono.id !== clientePorNombre.id) {
+        throw new HttpError(409, 'El nombre y el teléfono corresponden a clientes distintos');
+      }
+
+      const clienteExistente = clientePorTelefono || clientePorNombre;
+      if (clienteExistente) {
+        clienteId = clienteExistente.id;
+        db.prepare('UPDATE clientes SET nombre = COALESCE(?, nombre), telefono = COALESCE(?, telefono) WHERE id = ?')
+          .run(nombreCliente || null, telefonoCliente, clienteId);
+      } else {
+        const cliente = db.prepare('INSERT INTO clientes (nombre, telefono) VALUES (?, ?)')
+          .run(nombreCliente || null, telefonoCliente);
+        clienteId = cliente.lastInsertRowid;
+      }
+    }
+
     const getP = db.prepare('SELECT * FROM productos WHERE id = ? AND activo = 1');
     const lineas = items.map((it) => {
       const p = getP.get(Number(it.producto_id));
@@ -354,21 +411,31 @@ ruta('POST', /^\/api\/ventas$/, async (req) => {
     const cambio = redondea(recibido - total);
     const dispositivo = String(req.headers['user-agent'] || '').slice(0, 120);
 
-    const r = db.prepare('INSERT INTO ventas (usuario_id, total, metodo, recibido, cambio, dispositivo) VALUES (?,?,?,?,?,?)')
-      .run(u.id, total, metodo, recibido, cambio, dispositivo);
+    const r = db.prepare('INSERT INTO ventas (usuario_id, cliente_id, total, metodo, recibido, cambio, dispositivo) VALUES (?,?,?,?,?,?,?)')
+      .run(u.id, clienteId, total, metodo, recibido, cambio, dispositivo);
     const insD = db.prepare('INSERT INTO venta_detalle (venta_id, producto_id, nombre, precio, cantidad, subtotal) VALUES (?,?,?,?,?,?)');
     const desc = db.prepare('UPDATE productos SET existencia = existencia - ? WHERE id = ? AND controla_existencia = 1');
     for (const l of lineas) {
       insD.run(r.lastInsertRowid, l.p.id, l.p.nombre, l.p.precio, l.cantidad, l.subtotal);
       desc.run(l.cantidad, l.p.id);
     }
+    if (clienteId !== null) actualizarResumenCliente(clienteId);
     return r.lastInsertRowid;
   });
   return detalleVenta(ventaId);
 });
 
+function actualizarResumenCliente(id) {
+  db.prepare(`UPDATE clientes SET
+    numero_compras = (SELECT COUNT(*) FROM ventas WHERE cliente_id = ? AND cancelada = 0),
+    primera_compra = (SELECT MIN(fecha) FROM ventas WHERE cliente_id = ? AND cancelada = 0),
+    ultima_compra = (SELECT MAX(fecha) FROM ventas WHERE cliente_id = ? AND cancelada = 0)
+    WHERE id = ?`).run(id, id, id, id);
+}
+
 function detalleVenta(id) {
-  const v = db.prepare(`SELECT v.*, u.nombre AS vendedor FROM ventas v JOIN usuarios u ON u.id = v.usuario_id WHERE v.id = ?`).get(id);
+  const v = db.prepare(`SELECT v.*, u.nombre AS vendedor, c.nombre AS cliente_nombre, c.telefono AS cliente_telefono
+    FROM ventas v JOIN usuarios u ON u.id = v.usuario_id LEFT JOIN clientes c ON c.id = v.cliente_id WHERE v.id = ?`).get(id);
   if (!v) throw new HttpError(404, 'Venta no encontrada');
   v.items = db.prepare('SELECT * FROM venta_detalle WHERE venta_id = ?').all(id);
   return v;
@@ -379,9 +446,9 @@ ruta('GET', /^\/api\/ventas$/, (req, q) => {
   const [desde, hasta] = rangoFechas(q);
   const soloMias = u.rol !== 'admin';
   return db.prepare(`
-    SELECT v.id, v.fecha, v.total, v.metodo, v.cancelada, u.nombre AS vendedor,
+    SELECT v.id, v.fecha, v.total, v.metodo, v.cancelada, c.nombre AS cliente_nombre, u.nombre AS vendedor,
       (SELECT SUM(cantidad) FROM venta_detalle d WHERE d.venta_id = v.id) AS piezas
-    FROM ventas v JOIN usuarios u ON u.id = v.usuario_id
+    FROM ventas v JOIN usuarios u ON u.id = v.usuario_id LEFT JOIN clientes c ON c.id = v.cliente_id
     WHERE v.fecha BETWEEN ? AND ? ${soloMias ? 'AND v.usuario_id = ?' : ''}
     ORDER BY v.id DESC`).all(...(soloMias ? [desde, hasta, u.id] : [desde, hasta]));
 });
@@ -400,6 +467,7 @@ ruta('POST', /^\/api\/ventas\/(\d+)\/cancelar$/, (req, q, [id]) => {
     if (!v) throw new HttpError(404, 'Venta no encontrada');
     if (v.cancelada) throw new HttpError(409, 'La venta ya estaba cancelada');
     db.prepare('UPDATE ventas SET cancelada = 1 WHERE id = ?').run(id);
+    if (v.cliente_id !== null) actualizarResumenCliente(v.cliente_id);
     // Regresa la mercancía al inventario
     db.prepare(`UPDATE productos SET existencia = existencia + (
         SELECT SUM(d.cantidad) FROM venta_detalle d WHERE d.venta_id = ? AND d.producto_id = productos.id)
