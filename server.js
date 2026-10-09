@@ -475,7 +475,7 @@ ruta('GET', /^\/api\/ventas$/, (req, q) => {
   const [desde, hasta] = rangoFechas(q);
   const soloMias = u.rol !== 'admin';
   return db.prepare(`
-    SELECT v.id, v.fecha, v.total, v.metodo, v.cancelada, c.nombre AS cliente_nombre, u.nombre AS vendedor,
+    SELECT v.id, v.fecha, v.ticket_number, v.total, v.metodo, v.cancelada, c.nombre AS cliente_nombre, u.nombre AS vendedor,
       (SELECT SUM(cantidad) FROM venta_detalle d WHERE d.venta_id = v.id) AS piezas
     FROM ventas v JOIN usuarios u ON u.id = v.usuario_id LEFT JOIN clientes c ON c.id = v.cliente_id
     WHERE v.fecha BETWEEN ? AND ? ${soloMias ? 'AND v.usuario_id = ?' : ''}
