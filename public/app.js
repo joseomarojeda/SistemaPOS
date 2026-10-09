@@ -342,7 +342,7 @@ function htmlTicket(v) {
   const a = estado.ajustes;
   return `<div class="ticket">
     <div class="c"><strong>${esc(a.negocio)}</strong>${a.direccion ? '<br>' + esc(a.direccion) : ''}</div>
-    <hr>Ticket: #${v.id}<br>${esc(v.fecha)}<br>Atendió: ${esc(v.vendedor)}
+    <hr>Ticket: #${v.ticket_number}<br>${esc(v.fecha)}<br>Atendió: ${esc(v.vendedor)}
     ${v.cliente_nombre || v.cliente_telefono ? `<br>Cliente: ${esc(v.cliente_nombre || 'Sin nombre')}${v.cliente_telefono ? `<br>Teléfono: ${esc(v.cliente_telefono)}` : ''}` : ''}
     ${v.cancelada ? '<br><strong>*** VENTA CANCELADA ***</strong>' : ''}<hr>
     <table>${v.items.map((i) => `<tr><td>${i.cantidad} ${esc(i.nombre)}</td><td class="der">${dinero(i.subtotal)}</td></tr>`).join('')}</table><hr>
@@ -354,7 +354,7 @@ function htmlTicket(v) {
 
 function mostrarTicket(v, nueva) {
   const caja = abrirModal(`
-    <h2>${nueva ? '✅ Venta registrada' : 'Venta #' + v.id} <button class="icon-btn" data-cerrar aria-label="Cerrar">✕</button></h2>
+    <h2>${nueva ? '✅ Venta registrada' : 'Ticket #' + v.ticket_number} <button class="icon-btn" data-cerrar aria-label="Cerrar">✕</button></h2>
     ${nueva && v.metodo === 'efectivo' ? `<div class="cambio"><span>Cambio</span><span class="num">${dinero(v.cambio)}</span></div>` : ''}
     ${htmlTicket(v)}
     <div class="botones">
@@ -367,7 +367,7 @@ function mostrarTicket(v, nueva) {
     if ('cerrar' in t.dataset) { cerrarModal(); $('#buscar')?.focus(); }
     else if ('imprimir' in t.dataset) { $('#ticket-impresion').innerHTML = htmlTicket(v); window.print(); }
     else if ('cancelar' in t.dataset) {
-      if (!confirm(`¿Cancelar la venta #${v.id} por ${dinero(v.total)}? La mercancía regresa al inventario.`)) return;
+      if (!confirm(`¿Cancelar el ticket #${v.ticket_number} por ${dinero(v.total)}? La mercancía regresa al inventario.`)) return;
       try { await api(`/ventas/${v.id}/cancelar`, { method: 'POST' }); aviso('Venta cancelada'); cerrarModal(); enrutar(); }
       catch (err) { aviso(err.message, 'error'); }
     }
@@ -386,7 +386,7 @@ async function vistaVentas() {
     <div class="panel tabla-wrap"><table>
       <thead><tr><th>Ticket</th><th>Hora</th><th>Cliente</th><th>Vendedor</th><th>Pago</th><th class="der">Total</th></tr></thead>
       <tbody>${ventas.map((v) => `<tr class="clic ${v.cancelada ? 'cancelada' : ''}" data-id="${v.id}">
-        <td>#${v.id}</td><td>${v.fecha.slice(11, 16)}</td><td>${esc(v.cliente_nombre || 'Público en general')}</td>
+        <td>#${v.ticket_number}</td><td>${v.fecha.slice(11, 16)}</td><td>${esc(v.cliente_nombre || 'Público en general')}</td>
         <td>${esc(v.vendedor)}</td><td>${METODOS[v.metodo]}</td><td class="der num">${dinero(v.total)}</td></tr>`).join('') || '<tr><td colspan="6" class="vacio">Sin ventas este día.</td></tr>'}</tbody>
     </table></div>`;
   $('#fecha').addEventListener('change', (e) => { estado.fechaVentas = e.target.value; vistaVentas(); });

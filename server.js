@@ -60,6 +60,7 @@ db.exec(`
     fecha TEXT NOT NULL DEFAULT (datetime('now','localtime')),
     usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
     cliente_id INTEGER REFERENCES clientes(id),
+    ticket_number INTEGER NOT NULL,
     total REAL NOT NULL,
     metodo TEXT NOT NULL CHECK (metodo IN ('efectivo','tarjeta','transferencia')),
     recibido REAL NOT NULL DEFAULT 0,
@@ -103,6 +104,21 @@ db.exec(`
 if (!db.prepare('PRAGMA table_info(ventas)').all().some((columna) => columna.name === 'cliente_id')) {
   db.exec('ALTER TABLE ventas ADD COLUMN cliente_id INTEGER REFERENCES clientes(id)');
 }
+if (!db.prepare('PRAGMA table_info(ventas)').all().some((columna) => columna.name === 'ticket_number')) {
+  db.exec('ALTER TABLE ventas ADD COLUMN ticket_number INTEGER');
+}
+db.exec(`
+  WITH folios AS (
+    SELECT id, ROW_NUMBER() OVER (PARTITION BY date(fecha) ORDER BY id) AS numero
+    FROM ventas
+  )
+  UPDATE ventas
+  SET ticket_number = (SELECT numero FROM folios WHERE folios.id = ventas.id)
+  WHERE ticket_number IS NULL;
+
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_ventas_fecha_ticket
+    ON ventas(date(fecha), ticket_number);
+`);
 
 // Datos iniciales la primera vez
 if (db.prepare('SELECT COUNT(*) AS n FROM usuarios').get().n === 0) {
@@ -410,9 +426,14 @@ ruta('POST', /^\/api\/ventas$/, async (req) => {
     if (recibido < total) throw new HttpError(400, 'El monto recibido es menor al total');
     const cambio = redondea(recibido - total);
     const dispositivo = String(req.headers['user-agent'] || '').slice(0, 120);
-
-    const r = db.prepare('INSERT INTO ventas (usuario_id, cliente_id, total, metodo, recibido, cambio, dispositivo) VALUES (?,?,?,?,?,?,?)')
-      .run(u.id, clienteId, total, metodo, recibido, cambio, dispositivo);
+    const fechaVenta = new Date();
+    const fecha = `${fechaLocal(fechaVenta)} ${String(fechaVenta.getHours()).padStart(2, '0')}:${String(fechaVenta.getMinutes()).padStart(2, '0')}:${String(fechaVenta.getSeconds()).padStart(2, '0')}`;
+    const ticketNumber = db.prepare(`SELECT COALESCE(MAX(ticket_number), 0) + 1 AS numero
+      FROM ventas WHERE date(fecha) = ?`).get(fecha.slice(0, 10)).numero;
+    const r = db.prepare(`INSERT INTO ventas
+      (fecha, usuario_id, cliente_id, ticket_number, total, metodo, recibido, cambio, dispositivo)
+      VALUES (?,?,?,?,?,?,?,?,?)`)
+      .run(fecha, u.id, clienteId, ticketNumber, total, metodo, recibido, cambio, dispositivo);
     const insD = db.prepare('INSERT INTO venta_detalle (venta_id, producto_id, nombre, precio, cantidad, subtotal) VALUES (?,?,?,?,?,?)');
     const desc = db.prepare('UPDATE productos SET existencia = existencia - ? WHERE id = ? AND controla_existencia = 1');
     for (const l of lineas) {
