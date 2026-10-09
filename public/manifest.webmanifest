@@ -1,0 +1,9 @@
+{
+  "name": "Punto de Venta",
+  "short_name": "Ventas",
+  "start_url": "/#venta",
+  "display": "standalone",
+  "background_color": "#f4f6f8",
+  "theme_color": "#0f766e",
+  "icons": [{ "src": "/icono.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

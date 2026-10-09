@@ -1,0 +1,36 @@
+SISTEMA PUNTO DE VENTA
+======================
+
+INSTALAR (solo una vez)
+  1. Clic derecho en el boton Inicio > "Terminal" (o "Windows PowerShell").
+  2. Abre INSTALAR-PowerShell.txt, copia todo el texto, pegalo en la
+     ventana azul/negra y presiona Enter. Si pregunta por pegar varias
+     lineas, elige "Pegar de todos modos".
+  3. Acepta los permisos que pida Windows (instalar Node.js y el firewall).
+  Al terminar se abre el sistema en el navegador, queda el icono
+  "Punto de Venta" en el escritorio y arranca solo al encender la PC.
+
+USAR
+  - En esta computadora: icono "Punto de Venta" del escritorio.
+    Se abre una ventana negra minimizada: NO la cierres mientras vendas.
+  - En celular o tablet: conectate al MISMO wifi y abre en el navegador
+    la direccion que aparece en Menu > Ajustes, por ejemplo
+    http://192.168.1.50:3000
+    Tip: en el navegador usa "Agregar a pantalla de inicio".
+
+PINES INICIALES  (cambialos en Menu > Usuarios)
+  Administrador: 1234
+  Vendedor 1:    1111
+
+LECTOR DE CODIGO DE BARRAS
+  Los lectores USB o Bluetooth funcionan directo: con el cursor en el
+  buscador, escanea y el producto se agrega solo.
+
+TUS DATOS
+  Todo se guarda en la carpeta "datos" (archivo pos.db).
+  Cada dia se crea un respaldo en datos\respaldos (se guardan 30 dias).
+  Copia esa carpeta a una USB de vez en cuando.
+
+RECOMENDADO
+  En tu router, asigna IP fija a esta computadora (reserva DHCP) para
+  que la direccion de los celulares no cambie.

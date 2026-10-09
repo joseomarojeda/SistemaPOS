@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f766e">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Punto de Venta</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icono.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icono.svg">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <!-- Inicio de sesión -->
+  <section id="login" class="login" hidden>
+    <div class="login-caja">
+      <img src="/icono.svg" alt="" width="56" height="56">
+      <h1 id="login-negocio">Punto de Venta</h1>
+      <p class="muted">Ingresa tu PIN</p>
+      <div class="pin-puntos" id="pin-puntos"></div>
+      <div class="pin-teclado" id="pin-teclado"></div>
+      <p class="error" id="login-error"></p>
+    </div>
+  </section>
+
+  <!-- Aplicación -->
+  <div id="app" hidden>
+    <header class="barra">
+      <button class="icon-btn" id="btn-menu" aria-label="Menú">☰</button>
+      <strong id="titulo-negocio">Punto de Venta</strong>
+      <span class="usuario" id="usuario-nombre"></span>
+    </header>
+
+    <nav class="menu" id="menu">
+      <a href="#venta">🛒 Vender</a>
+      <a href="#ventas">🧾 Ventas</a>
+      <a href="#productos" data-admin>📦 Productos</a>
+      <a href="#corte" data-admin>📊 Corte de caja</a>
+      <a href="#usuarios" data-admin>👥 Usuarios</a>
+      <a href="#ajustes" data-admin>⚙️ Ajustes</a>
+      <a href="#salir" id="btn-salir">🚪 Cerrar sesión</a>
+    </nav>
+    <div class="velo" id="velo"></div>
+
+    <main id="vista"></main>
+  </div>
+
+  <div class="modal" id="modal" hidden><div class="modal-caja" id="modal-caja"></div></div>
+  <div class="aviso" id="aviso" hidden></div>
+  <div id="ticket-impresion"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
