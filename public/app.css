@@ -4,10 +4,11 @@
   --texto: #1f2933;
   --muted: #6b7785;
   --borde: #dde3e9;
-  --primario: #0f766e;
-  --primario-2: #115e59;
+  --primario: #b91c1c;
+  --primario-2: #991b1b;
   --peligro: #c2410c;
-  --exito: #15803d;
+  --exito: #b91c1c;
+  --primario-suave: #fef2f2;
   --sombra: 0 1px 3px rgba(0,0,0,.08), 0 4px 14px rgba(0,0,0,.05);
   --radio: 12px;
 }
@@ -47,7 +48,7 @@ label { display: block; font-size: .9rem; color: var(--muted); margin: 10px 0 4p
 .check input { width: 22px; min-height: 22px; height: 22px; }
 
 /* Login */
-.login { min-height: 100%; display: grid; place-items: center; padding: 16px; background: linear-gradient(160deg, #0f766e, #134e4a); }
+.login { min-height: 100%; display: grid; place-items: center; padding: 16px; background: linear-gradient(160deg, #b91c1c, #7f1d1d); }
 .login-caja { background: var(--panel); padding: 28px 24px; border-radius: 20px; width: 100%; max-width: 340px; text-align: center; box-shadow: var(--sombra); }
 .login-caja h1 { margin: 10px 0 2px; font-size: 1.4rem; }
 .pin-puntos { display: flex; justify-content: center; gap: 12px; margin: 16px 0; height: 16px; }
@@ -55,7 +56,7 @@ label { display: block; font-size: .9rem; color: var(--muted); margin: 10px 0 4p
 .pin-puntos span.lleno { background: var(--primario); }
 .pin-teclado { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .pin-teclado button { height: 60px; border-radius: 14px; border: 1px solid var(--borde); background: #f8fafb; font-size: 1.5rem; font-weight: 600; }
-.pin-teclado button:active { background: #e6f2f1; }
+.pin-teclado button:active { background: var(--primario-suave); }
 
 /* Barra y menú */
 .barra {
@@ -71,7 +72,7 @@ label { display: block; font-size: .9rem; color: var(--muted); margin: 10px 0 4p
 }
 .menu.abierto { transform: none; }
 .menu a { padding: 14px 16px; border-radius: 10px; color: var(--texto); text-decoration: none; font-weight: 500; }
-.menu a.activo { background: #e6f2f1; color: var(--primario); }
+.menu a.activo { background: var(--primario-suave); color: var(--primario); }
 .velo { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 30; display: none; }
 .velo.visible { display: block; }
 
@@ -93,7 +94,7 @@ h2 { margin: 4px 0 14px; font-size: 1.3rem; }
   background: var(--panel); border: 1px solid var(--borde); border-radius: var(--radio); padding: 12px;
   text-align: left; display: flex; flex-direction: column; gap: 6px; min-height: 104px; position: relative;
 }
-.prod:active { background: #e6f2f1; }
+.prod:active { background: var(--primario-suave); }
 .prod .nombre { font-weight: 600; line-height: 1.2; }
 .prod .precio { color: var(--primario); font-weight: 700; font-size: 1.1rem; margin-top: auto; }
 .prod .stock { font-size: .78rem; color: var(--muted); }
@@ -140,7 +141,7 @@ tr.clic:hover { background: #f8fafb; }
 tr.cancelada td { color: var(--muted); text-decoration: line-through; }
 .etiqueta { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: .78rem; background: #eef1f4; }
 .etiqueta.rojo { background: #fde8de; color: var(--peligro); }
-.etiqueta.verde { background: #dcf3e4; color: var(--exito); }
+.etiqueta.verde { background: #fee2e2; color: var(--exito); }
 
 .tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .tarjeta { background: var(--panel); border-radius: var(--radio); box-shadow: var(--sombra); padding: 14px 16px; }
@@ -162,10 +163,10 @@ tr.cancelada td { color: var(--muted); text-decoration: line-through; }
 .modal-caja h2 { display: flex; justify-content: space-between; align-items: center; }
 .metodos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
 .metodos button { padding: 12px 4px; border-radius: 10px; border: 2px solid var(--borde); background: #fff; font-weight: 600; font-size: .9rem; }
-.metodos button.activo { border-color: var(--primario); background: #e6f2f1; color: var(--primario); }
+.metodos button.activo { border-color: var(--primario); background: var(--primario-suave); color: var(--primario); }
 .rapidos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .rapidos button { flex: 1; min-width: 64px; padding: 10px; border-radius: 10px; border: 1px solid var(--borde); background: #f8fafb; font-weight: 600; }
-.cambio { display: flex; justify-content: space-between; font-size: 1.3rem; font-weight: 700; margin: 16px 0; padding: 12px; background: #f1f8f6; border-radius: 10px; }
+.cambio { display: flex; justify-content: space-between; font-size: 1.3rem; font-weight: 700; margin: 16px 0; padding: 12px; background: var(--primario-suave); border-radius: 10px; }
 .botones { display: flex; gap: 10px; margin-top: 16px; }
 .botones .btn { flex: 1; }
 
