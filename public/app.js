@@ -393,6 +393,10 @@ async function vistaProductos() {
   estado.categorias = categorias;
   const filtro = (estado.filtroProd || '').toLowerCase();
   const lista = productos.filter((p) => !filtro || p.nombre.toLowerCase().includes(filtro) || (p.codigo || '').includes(filtro) || p.categoria.toLowerCase().includes(filtro));
+  const categoriasConProductos = estado.categorias.map((categoria) => ({
+    ...categoria,
+    productos: productos.filter((p) => p.categoria === categoria.nombre).length,
+  }));
   $('#vista').innerHTML = `
     <h2>Productos</h2>
     <div class="fila" style="margin-bottom:12px">
@@ -407,7 +411,18 @@ async function vistaProductos() {
         <td class="der num">${dinero(p.precio)}</td><td class="der num">${dinero(p.costo)}</td>
         <td class="der num">${p.controla_existencia ? `<span class="etiqueta ${p.existencia <= 5 ? 'rojo' : ''}">${p.existencia}</span>` : '<span class="muted">—</span>'}</td>
         <td>${p.activo ? '' : '<span class="etiqueta">Inactivo</span>'}</td></tr>`).join('') || '<tr><td colspan="7" class="vacio">Sin productos.</td></tr>'}</tbody>
-    </table></div>`;
+    </table></div>
+    <section class="panel seccion tabla-wrap">
+      <h3>Categorías</h3>
+      <table>
+        <thead><tr><th>Nombre</th><th class="der">Productos</th><th></th></tr></thead>
+        <tbody>${categoriasConProductos.map((categoria) => `<tr>
+          <td><strong>${esc(categoria.nombre)}</strong></td>
+          <td class="der">${categoria.productos}</td>
+          <td class="der">${categoria.nombre === 'General' ? '<span class="muted">Predeterminada</span>' : `<button class="btn btn-peligro" data-eliminar-categoria="${categoria.id}">Eliminar</button>`}</td>
+        </tr>`).join('') || '<tr><td colspan="3" class="vacio">Sin categorías.</td></tr>'}</tbody>
+      </table>
+    </section>`;
   const f = $('#filtro');
   f.addEventListener('input', () => { estado.filtroProd = f.value; clearTimeout(f._t); f._t = setTimeout(() => vistaProductos().then(() => { const n = $('#filtro'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }), 250); });
   $('#nueva-categoria').addEventListener('click', crearCategoria);
@@ -415,6 +430,25 @@ async function vistaProductos() {
   $('tbody').addEventListener('click', (e) => {
     const tr = e.target.closest('tr[data-id]');
     if (tr) editarProducto(productos.find((p) => p.id === Number(tr.dataset.id)), productos);
+  });
+  $('#vista').addEventListener('click', async (e) => {
+    const boton = e.target.closest('[data-eliminar-categoria]');
+    if (!boton) return;
+    const categoria = categoriasConProductos.find((c) => c.id === Number(boton.dataset.eliminarCategoria));
+    if (!categoria) return;
+    const productosAReasignar = categoria.productos
+      ? `\n\n${categoria.productos} producto(s) se reasignarán a "General".`
+      : '';
+    if (!confirm(`¿Eliminar la categoría "${categoria.nombre}"?${productosAReasignar}`)) return;
+    boton.disabled = true;
+    try {
+      await api('/categorias/' + categoria.id, { method: 'DELETE' });
+      aviso('Categoría eliminada');
+      await vistaProductos();
+    } catch (err) {
+      aviso(err.message, 'error');
+      boton.disabled = false;
+    }
   });
 }
 

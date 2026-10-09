@@ -261,10 +261,11 @@ ruta('GET', /^\/api\/categorias$/, (req) => {
 ruta('POST', /^\/api\/categorias$/, async (req) => {
   requiere(req, 'admin');
   const { nombre } = await leerJSON(req);
-  const categoria = categoriaNormalizada(nombre);
-  if (categoria === 'General' && String(nombre || '').trim() === '') {
+  const categoria = String(nombre || '').trim();
+  if (!categoria) {
     throw new HttpError(400, 'El nombre de la categoría es obligatorio');
   }
+  if (categoria.length > 100) throw new HttpError(400, 'El nombre de la categoría no puede exceder 100 caracteres');
   try {
     const r = db.prepare('INSERT INTO categorias (nombre) VALUES (?)').run(categoria);
     return db.prepare('SELECT * FROM categorias WHERE id = ?').get(r.lastInsertRowid);
@@ -272,6 +273,18 @@ ruta('POST', /^\/api\/categorias$/, async (req) => {
     if (String(e.message).includes('UNIQUE')) throw new HttpError(409, 'La categoría ya existe');
     throw e;
   }
+});
+
+ruta('DELETE', /^\/api\/categorias\/(\d+)$/, (req, q, [id]) => {
+  requiere(req, 'admin');
+  return transaccion(() => {
+    const categoria = db.prepare('SELECT * FROM categorias WHERE id = ?').get(id);
+    if (!categoria) throw new HttpError(404, 'Categoría no encontrada');
+    if (categoria.nombre === 'General') throw new HttpError(400, 'La categoría General no se puede eliminar');
+    db.prepare('UPDATE productos SET categoria = ? WHERE categoria = ?').run('General', categoria.nombre);
+    db.prepare('DELETE FROM categorias WHERE id = ?').run(id);
+    return { ok: true };
+  });
 });
 
 // Productos
