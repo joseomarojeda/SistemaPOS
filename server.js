@@ -11,6 +11,10 @@ const { DatabaseSync } = require('node:sqlite');
 const { spawn } = require('node:child_process');
 
 const PORT = Number(process.env.PORT) || 3000;
+const KITCHEN_PORT = Number(process.env.KITCHEN_PORT) || 3001;
+if (PORT === KITCHEN_PORT) {
+  throw new Error('PORT y KITCHEN_PORT deben ser diferentes');
+}
 const ROOT = __dirname;
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const DATA_DIR = path.join(ROOT, 'datos');
@@ -96,9 +100,39 @@ db.exec(`
     creado TEXT NOT NULL DEFAULT (datetime('now','localtime'))
   );
 
+  CREATE TABLE IF NOT EXISTS usuarios_cocina (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL,
+    pin TEXT NOT NULL UNIQUE,
+    activo INTEGER NOT NULL DEFAULT 1
+  );
+
+  CREATE TABLE IF NOT EXISTS sesiones_cocina (
+    token TEXT PRIMARY KEY,
+    usuario_id INTEGER NOT NULL REFERENCES usuarios_cocina(id),
+    creado TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  );
+
+  CREATE TABLE IF NOT EXISTS ordenes_cocina (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    venta_id INTEGER NOT NULL UNIQUE REFERENCES ventas(id),
+    estado TEXT NOT NULL DEFAULT 'preparando' CHECK (estado IN ('preparando','listo','retirado','cancelado')),
+    recibido TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    listo_en TEXT,
+    retirado_en TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS cortes_caja_cocina (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cerrado_en TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    venta_id_hasta INTEGER NOT NULL,
+    usuario_id INTEGER NOT NULL REFERENCES usuarios(id)
+  );
+
   CREATE INDEX IF NOT EXISTS idx_ventas_fecha ON ventas(fecha);
   CREATE INDEX IF NOT EXISTS idx_detalle_venta ON venta_detalle(venta_id);
   CREATE UNIQUE INDEX IF NOT EXISTS idx_clientes_telefono ON clientes(telefono) WHERE telefono IS NOT NULL;
+  CREATE INDEX IF NOT EXISTS idx_ordenes_cocina_estado ON ordenes_cocina(estado, recibido);
 `);
 
 if (!db.prepare('PRAGMA table_info(ventas)').all().some((columna) => columna.name === 'cliente_id')) {
@@ -229,6 +263,22 @@ function requiere(req, rol) {
   return u;
 }
 
+function usuarioCocinaDe(req) {
+  const h = req.headers.authorization || '';
+  const token = h.startsWith('Bearer ') ? h.slice(7) : null;
+  if (!token) return null;
+  return db.prepare(`
+    SELECT u.id, u.nombre FROM sesiones_cocina s
+    JOIN usuarios_cocina u ON u.id = s.usuario_id
+    WHERE s.token = ? AND u.activo = 1`).get(token) || null;
+}
+
+function requiereCocina(req) {
+  const u = usuarioCocinaDe(req);
+  if (!u) throw new HttpError(401, 'Inicia sesión en cocina');
+  return u;
+}
+
 const redondea = (n) => Math.round(Number(n) * 100) / 100;
 
 function categoriaNormalizada(nombre) {
@@ -265,7 +315,12 @@ function rangoFechas(q) {
 const rutas = [];
 const ruta = (metodo, patron, fn) => rutas.push({ metodo, patron, fn });
 
-ruta('GET', /^\/api\/info$/, () => ({ negocio: ajustes().negocio, direcciones: direccionesLocales() }));
+ruta('GET', /^\/api\/info$/, () => ({
+  negocio: ajustes().negocio,
+  direcciones: direccionesLocales(PORT),
+  puertoCocina: KITCHEN_PORT,
+  direccionesCocina: direccionesLocales(KITCHEN_PORT),
+}));
 
 ruta('POST', /^\/api\/login$/, async (req) => {
   const { pin } = await leerJSON(req);
@@ -279,6 +334,66 @@ ruta('POST', /^\/api\/login$/, async (req) => {
 ruta('POST', /^\/api\/logout$/, (req) => {
   const token = (req.headers.authorization || '').slice(7);
   db.prepare('DELETE FROM sesiones WHERE token = ?').run(token);
+  return { ok: true };
+});
+
+ruta('POST', /^\/api\/cocina\/login$/, async (req) => {
+  const { pin } = await leerJSON(req);
+  const u = db.prepare('SELECT id, nombre FROM usuarios_cocina WHERE pin = ? AND activo = 1').get(String(pin || ''));
+  if (!u) throw new HttpError(401, 'PIN incorrecto');
+  const token = crypto.randomBytes(24).toString('hex');
+  db.prepare('INSERT INTO sesiones_cocina (token, usuario_id) VALUES (?, ?)').run(token, u.id);
+  return { token, usuario: u };
+});
+
+ruta('POST', /^\/api\/cocina\/logout$/, (req) => {
+  const token = (req.headers.authorization || '').slice(7);
+  db.prepare('DELETE FROM sesiones_cocina WHERE token = ?').run(token);
+  return { ok: true };
+});
+
+ruta('GET', /^\/api\/cocina\/yo$/, (req) => ({ usuario: requiereCocina(req) }));
+
+ruta('GET', /^\/api\/cocina\/pedidos$/, (req, q) => {
+  requiereCocina(req);
+  const historial = q.get('historial') === '1';
+  const where = historial
+    ? `date(v.fecha) = date('now','localtime')
+      AND v.id > COALESCE((SELECT venta_id_hasta FROM cortes_caja_cocina ORDER BY id DESC LIMIT 1), 0)`
+    : `v.cancelada = 0 AND (
+        oc.estado IN ('preparando','listo')
+        OR (oc.estado = 'retirado' AND oc.retirado_en >= datetime('now','localtime','-5 minutes'))
+      )`;
+  const ordenes = db.prepare(`
+    SELECT oc.id, oc.estado, oc.recibido, oc.listo_en, oc.retirado_en,
+      v.fecha, v.ticket_number, c.nombre AS cliente, u.nombre AS vendedor
+    FROM ordenes_cocina oc
+    JOIN ventas v ON v.id = oc.venta_id
+    JOIN usuarios u ON u.id = v.usuario_id
+    LEFT JOIN clientes c ON c.id = v.cliente_id
+    WHERE ${where}
+    ORDER BY ${historial ? 'v.id DESC' : "CASE oc.estado WHEN 'preparando' THEN 0 WHEN 'listo' THEN 1 ELSE 2 END, oc.recibido"}
+  `).all();
+  const detalle = db.prepare('SELECT nombre, cantidad FROM venta_detalle WHERE venta_id = (SELECT venta_id FROM ordenes_cocina WHERE id = ?)');
+  return ordenes.map((orden) => ({ ...orden, items: detalle.all(orden.id) }));
+});
+
+ruta('PUT', /^\/api\/cocina\/pedidos\/(\d+)\/estado$/, async (req, q, [id]) => {
+  requiereCocina(req);
+  const { estado } = await leerJSON(req);
+  const estadoAnterior = estado === 'listo' ? 'preparando' : estado === 'retirado' ? 'listo' : null;
+  if (!estadoAnterior) throw new HttpError(400, 'Estado de orden inválido');
+  const resultado = db.prepare(`
+    UPDATE ordenes_cocina
+    SET estado = ?,
+      listo_en = CASE WHEN ? = 'listo' THEN datetime('now','localtime') ELSE listo_en END,
+      retirado_en = CASE WHEN ? = 'retirado' THEN datetime('now','localtime') ELSE retirado_en END
+    WHERE id = ? AND estado = ?
+  `).run(estado, estado, estado, id, estadoAnterior);
+  if (!resultado.changes) {
+    if (!db.prepare('SELECT 1 FROM ordenes_cocina WHERE id = ?').get(id)) throw new HttpError(404, 'Orden no encontrada');
+    throw new HttpError(409, 'La orden ya cambió de estado; actualiza la pantalla');
+  }
   return { ok: true };
 });
 
@@ -448,6 +563,7 @@ ruta('POST', /^\/api\/ventas$/, async (req) => {
       insD.run(r.lastInsertRowid, l.p.id, l.p.nombre, l.p.precio, l.cantidad, l.subtotal);
       desc.run(l.cantidad, l.p.id);
     }
+    db.prepare('INSERT INTO ordenes_cocina (venta_id) VALUES (?)').run(r.lastInsertRowid);
     if (clienteId !== null) actualizarResumenCliente(clienteId);
     return r.lastInsertRowid;
   });
@@ -496,6 +612,7 @@ ruta('POST', /^\/api\/ventas\/(\d+)\/cancelar$/, (req, q, [id]) => {
     if (!v) throw new HttpError(404, 'Venta no encontrada');
     if (v.cancelada) throw new HttpError(409, 'La venta ya estaba cancelada');
     db.prepare('UPDATE ventas SET cancelada = 1 WHERE id = ?').run(id);
+    db.prepare("UPDATE ordenes_cocina SET estado = 'cancelado' WHERE venta_id = ?").run(id);
     if (v.cliente_id !== null) actualizarResumenCliente(v.cliente_id);
     // Regresa la mercancía al inventario
     db.prepare(`UPDATE productos SET existencia = existencia + (
@@ -525,6 +642,17 @@ ruta('GET', /^\/api\/corte$/, (req, q) => {
   return { desde, hasta, resumen, porMetodo, porVendedor, productos, cancelaciones, bajos };
 });
 
+ruta('POST', /^\/api\/corte\/cerrar$/, (req) => {
+  const usuario = requiere(req, 'admin');
+  return transaccion(() => {
+    const ventaIdHasta = db.prepare('SELECT COALESCE(MAX(id), 0) AS id FROM ventas').get().id;
+    const cierre = db.prepare('INSERT INTO cortes_caja_cocina (venta_id_hasta, usuario_id) VALUES (?, ?)')
+      .run(ventaIdHasta, usuario.id);
+    return db.prepare('SELECT id, cerrado_en, venta_id_hasta FROM cortes_caja_cocina WHERE id = ?')
+      .get(cierre.lastInsertRowid);
+  });
+});
+
 // Usuarios
 ruta('GET', /^\/api\/usuarios$/, (req) => {
   requiere(req, 'admin');
@@ -536,6 +664,9 @@ function validarUsuario(b) {
   const pin = String(b.pin || '').trim();
   if (!nombre) throw new HttpError(400, 'El nombre es obligatorio');
   if (!/^\d{4,8}$/.test(pin)) throw new HttpError(400, 'El PIN debe tener de 4 a 8 números');
+  if (db.prepare('SELECT 1 FROM usuarios_cocina WHERE pin = ?').get(pin)) {
+    throw new HttpError(409, 'Ese PIN ya lo usa un usuario de cocina');
+  }
   return { nombre, pin, rol: b.rol === 'admin' ? 'admin' : 'vendedor', activo: b.activo === false || b.activo === 0 ? 0 : 1 };
 }
 
@@ -565,6 +696,50 @@ ruta('PUT', /^\/api\/usuarios\/(\d+)$/, async (req, q, [id]) => {
   return { ok: true };
 });
 
+ruta('GET', /^\/api\/cocineros$/, (req) => {
+  requiere(req, 'admin');
+  return db.prepare('SELECT id, nombre, pin, activo FROM usuarios_cocina ORDER BY id').all();
+});
+
+function validarCocinero(b) {
+  const nombre = String(b.nombre || '').trim();
+  const pin = String(b.pin || '').trim();
+  if (!nombre) throw new HttpError(400, 'El nombre es obligatorio');
+  if (!/^\d{4,8}$/.test(pin)) throw new HttpError(400, 'El PIN debe tener de 4 a 8 números');
+  if (db.prepare('SELECT 1 FROM usuarios WHERE pin = ?').get(pin)) {
+    throw new HttpError(409, 'Ese PIN ya lo usa un usuario del POS');
+  }
+  return { nombre, pin, activo: b.activo === false || b.activo === 0 ? 0 : 1 };
+}
+
+ruta('POST', /^\/api\/cocineros$/, async (req) => {
+  requiere(req, 'admin');
+  const usuario = validarCocinero(await leerJSON(req));
+  try {
+    db.prepare('INSERT INTO usuarios_cocina (nombre, pin, activo) VALUES (?,?,?)')
+      .run(usuario.nombre, usuario.pin, usuario.activo);
+  } catch (e) {
+    if (String(e.message).includes('UNIQUE')) throw new HttpError(409, 'Ese PIN ya lo usa otra persona');
+    throw e;
+  }
+  return { ok: true };
+});
+
+ruta('PUT', /^\/api\/cocineros\/(\d+)$/, async (req, q, [id]) => {
+  requiere(req, 'admin');
+  const usuario = validarCocinero(await leerJSON(req));
+  try {
+    const resultado = db.prepare('UPDATE usuarios_cocina SET nombre=?, pin=?, activo=? WHERE id=?')
+      .run(usuario.nombre, usuario.pin, usuario.activo, id);
+    if (!resultado.changes) throw new HttpError(404, 'Usuario de cocina no encontrado');
+  } catch (e) {
+    if (String(e.message).includes('UNIQUE')) throw new HttpError(409, 'Ese PIN ya lo usa otra persona');
+    throw e;
+  }
+  if (!usuario.activo) db.prepare('DELETE FROM sesiones_cocina WHERE usuario_id = ?').run(id);
+  return { ok: true };
+});
+
 // Ajustes
 ruta('PUT', /^\/api\/ajustes$/, async (req) => {
   requiere(req, 'admin');
@@ -582,6 +757,7 @@ const TIPOS = {
 
 function servirArchivo(res, pathname) {
   let rel = decodeURIComponent(pathname);
+  if (rel === '/cocina') rel = '/cocina.html';
   if (rel === '/' || !path.extname(rel)) rel = '/index.html';
   const archivo = path.normalize(path.join(PUBLIC_DIR, rel));
   if (!archivo.startsWith(PUBLIC_DIR)) { res.writeHead(403); return res.end(); }
@@ -593,26 +769,40 @@ function servirArchivo(res, pathname) {
 }
 
 // ---------- Servidor ----------
-const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, 'http://local');
-  if (!url.pathname.startsWith('/api/')) return servirArchivo(res, url.pathname);
-  const r = rutas.find((x) => x.metodo === req.method && x.patron.test(url.pathname));
-  if (!r) return enviar(res, 404, { error: 'Ruta no encontrada' });
-  try {
-    const params = url.pathname.match(r.patron).slice(1);
-    enviar(res, 200, await r.fn(req, url.searchParams, params));
-  } catch (e) {
-    if (!(e instanceof HttpError)) console.error(e);
-    enviar(res, e.status || 500, { error: e instanceof HttpError ? e.message : 'Error interno del servidor' });
-  }
-});
+function crearManejador(esCocina) {
+  return async (req, res) => {
+    const url = new URL(req.url, 'http://local');
+    const recursosCocina = ['/cocina', '/cocina.html', '/cocina.js', '/cocina.css', '/icono.svg'];
+    if (esCocina) {
+      if (url.pathname === '/') return servirArchivo(res, '/cocina.html');
+      if (!url.pathname.startsWith('/api/cocina/') && !recursosCocina.includes(url.pathname)) {
+        return enviar(res, 404, { error: 'Ruta no encontrada' });
+      }
+    } else if (url.pathname === '/cocina' || url.pathname.startsWith('/cocina.') || url.pathname.startsWith('/api/cocina/')) {
+      return enviar(res, 404, { error: 'Ruta no encontrada' });
+    }
+    if (!url.pathname.startsWith('/api/')) return servirArchivo(res, url.pathname);
+    const r = rutas.find((x) => x.metodo === req.method && x.patron.test(url.pathname));
+    if (!r) return enviar(res, 404, { error: 'Ruta no encontrada' });
+    try {
+      const params = url.pathname.match(r.patron).slice(1);
+      enviar(res, 200, await r.fn(req, url.searchParams, params));
+    } catch (e) {
+      if (!(e instanceof HttpError)) console.error(e);
+      enviar(res, e.status || 500, { error: e instanceof HttpError ? e.message : 'Error interno del servidor' });
+    }
+  };
+}
 
-function direccionesLocales() {
+const server = http.createServer(crearManejador(false));
+const kitchenServer = http.createServer(crearManejador(true));
+
+function direccionesLocales(port = PORT) {
   const out = [];
   for (const [nombre, lista] of Object.entries(os.networkInterfaces())) {
     for (const i of lista || []) {
       if (i.family === 'IPv4' && !i.internal && !/vEthernet|VirtualBox|VMware|WSL|Hyper-V/i.test(nombre)) {
-        out.push(`http://${i.address}:${PORT}`);
+        out.push(`http://${i.address}:${port}`);
       }
     }
   }
@@ -628,6 +818,14 @@ server.on('error', (e) => {
     return;
   }
   throw e;
+});
+
+kitchenServer.on('error', (e) => {
+  if (e.code === 'EADDRINUSE') {
+    console.error(`No se pudo iniciar la pantalla de cocina: el puerto ${KITCHEN_PORT} ya está en uso. Define otro con KITCHEN_PORT.`);
+    return;
+  }
+  console.error('No se pudo iniciar el servidor de cocina:', e.message);
 });
 
 // Con --abrir, abre el navegador de la PC al arrancar
@@ -654,6 +852,16 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log('  Desde celular/tablet (misma red wifi):');
     for (const ip of ips) console.log('     ' + ip);
   }
-  console.log('\n  No cierres esta ventana mientras vendas.');
+  console.log(`\n  Pantalla de cocina: http://localhost:${KITCHEN_PORT}`);
+  const ipsCocina = direccionesLocales(KITCHEN_PORT);
+  if (ipsCocina.length) {
+    console.log('  Cocina desde celular/tablet (misma red wifi):');
+    for (const ip of ipsCocina) console.log('     ' + ip);
+  }
+  console.log('\n  No cierres esta ventana mientras uses el sistema.');
   console.log('==============================================\n');
+});
+
+kitchenServer.listen(KITCHEN_PORT, '0.0.0.0', () => {
+  console.log(`  Servidor de cocina escuchando en el puerto ${KITCHEN_PORT}.`);
 });

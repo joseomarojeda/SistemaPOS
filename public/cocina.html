@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#17202a">
+  <title>Cocina</title>
+  <link rel="icon" href="/icono.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/cocina.css">
+</head>
+<body>
+  <section id="login" class="login">
+    <form id="login-form" class="login-card">
+      <div class="brand-mark" aria-hidden="true">C</div>
+      <p class="eyebrow">SISTEMA POS</p>
+      <h1>Pantalla de cocina</h1>
+      <p class="muted">Ingresa con tu usuario y PIN de cocina.</p>
+      <label for="pin">PIN</label>
+      <input id="pin" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" autocomplete="current-password" required>
+      <p class="error" id="login-error" role="alert"></p>
+      <button class="button primary wide" type="submit">Entrar a cocina</button>
+    </form>
+  </section>
+
+  <div id="app" hidden>
+    <header class="topbar">
+      <div class="topbar-title"><span class="brand-mark small" aria-hidden="true">C</span><div><strong>Cocina</strong><span class="subtitle">Órdenes del punto de venta</span></div></div>
+      <div class="topbar-actions"><span id="usuario-nombre" class="user-name"></span><span id="estado-sonido" class="sound-status" aria-live="polite">Pulsa “Probar sonido” para habilitar avisos</span><button id="btn-sonido" class="button light" type="button">Probar sonido</button><button id="btn-actualizar" class="button light">Actualizar</button><button id="btn-salir" class="button light">Cerrar sesión</button></div>
+    </header>
+
+    <main>
+      <div class="heading">
+        <div><p class="eyebrow">CONTROL DE ÓRDENES</p><h1 id="heading-title">Órdenes activas</h1></div>
+        <span id="ultima-actualizacion" class="muted"></span>
+      </div>
+      <nav class="tabs" aria-label="Secciones">
+        <button class="tab active" data-tab="activas">Activas <span id="conteo-activas" class="count">0</span></button>
+        <button class="tab" data-tab="historial">Historial de hoy <span id="conteo-historial" class="count">0</span></button>
+      </nav>
+      <section id="panel-activas">
+        <div class="order-groups">
+          <section class="order-group preparing">
+            <h2>En preparación <span id="conteo-preparando" class="count">0</span></h2>
+            <div id="ordenes-preparando" class="group-orders"></div>
+          </section>
+          <section class="order-group ready">
+            <h2>Listas <span id="conteo-listas" class="count">0</span></h2>
+            <div id="ordenes-listas" class="group-orders"></div>
+          </section>
+          <section class="order-group retired">
+            <h2>Retiradas <span id="conteo-retiradas" class="count">0</span></h2>
+            <div id="ordenes-retiradas" class="group-orders"></div>
+            <p class="group-hint">Desaparecen de activas 5 minutos después de retirarlas.</p>
+          </section>
+        </div>
+      </section>
+      <section id="panel-historial" hidden>
+        <p class="history-note">Órdenes vendidas hoy desde el último cierre de caja. El cierre inicia un nuevo historial sin borrar las ventas.</p>
+        <div id="ordenes-historial" class="orders"></div>
+      </section>
+      <p id="error" class="error page-error" role="alert"></p>
+    </main>
+  </div>
+
+  <script src="/cocina.js"></script>
+</body>
+</html>

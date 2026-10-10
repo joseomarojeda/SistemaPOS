@@ -11,7 +11,7 @@ Sistema de punto de venta local para Windows, construido con Node.js y SQLite. P
 ## Instalación
 
 1. Descarga o clona este repositorio en `Documentos\SistemaPOS` dentro de tu carpeta de usuario de Windows.
-2. Ejecuta `INSTALAR.bat` y sigue las instrucciones. El instalador instala Node.js si hace falta, crea el acceso directo del escritorio y configura el firewall de Windows para permitir conexiones al puerto 3000.
+2. Ejecuta `INSTALAR.bat` y sigue las instrucciones. El instalador instala Node.js si hace falta, crea el acceso directo del escritorio y configura el firewall de Windows para permitir conexiones a los puertos 3000 (POS) y 3001 (cocina).
 
    Como alternativa, abre `INSTALAR-PowerShell.txt`, copia su contenido en PowerShell y ejecútalo. Este instalador también espera encontrar el proyecto en `Documentos\SistemaPOS`.
 
@@ -22,9 +22,13 @@ La instalación **no inicia el servidor ni configura el inicio automático con W
 - Para iniciar el sistema, abre **Punto de Venta** desde el escritorio. Esto ejecuta `INICIAR.bat` y abre la aplicación en el navegador.
 - Mantén abierta la ventana del servidor mientras uses el punto de venta.
 - Para detener el sistema, cierra la ventana del servidor.
-- El servidor escucha en el puerto `3000`. Si ya está ejecutándose, el acceso directo abre el sistema existente en lugar de iniciar otra instancia.
+- El POS escucha en el puerto `3000` y la pantalla de cocina en el `3001`. Ambos servidores se inician juntos. Si el POS ya está ejecutándose, el acceso directo abre el sistema existente en lugar de iniciar otra instancia.
 
 En esta computadora, abre <http://localhost:3000>. Para acceder desde un celular o tableta, usa la dirección de red local que muestra el servidor, con el mismo puerto (por ejemplo, `http://192.168.1.50:3000`).
+
+La pantalla de cocina se abre en <http://localhost:3001>. Desde otro dispositivo de la misma red, usa la dirección de cocina que muestra el servidor o la sección **Usuarios** del POS (por ejemplo, `http://192.168.1.50:3001`).
+
+En **Corte de caja**, el botón **Cerrar caja y reiniciar historial de cocina** cierra el periodo del día e inicia uno nuevo para el historial de cocina. Solo el administrador puede cerrar caja. Imprimir el reporte no cierra la caja. El cierre no borra ventas ni reportes; conserva los registros en la base de datos.
 
 ## Usuarios iniciales
 
@@ -33,12 +37,15 @@ En esta computadora, abre <http://localhost:3000>. Para acceder desde un celular
 | Administrador | `1234` |
 | Vendedor | `1111` |
 
-Cambia estos PIN en **Usuarios** después de la instalación. Los vendedores pueden registrar ventas y consultar sus ventas; el administrador también puede administrar productos, clientes, usuarios y ajustes, y consultar los cortes de caja.
+Cambia estos PIN en **Usuarios** después de la instalación. Desde esa misma sección, el administrador puede crear cuentas independientes para cocina; cada una tiene su propio PIN y solo permite acceder a la pantalla del puerto 3001. Los vendedores pueden registrar ventas y consultar sus ventas; el administrador también puede administrar productos, clientes, usuarios y ajustes, y consultar los cortes de caja.
 
 ## Funcionalidades
 
 - Búsqueda de productos y lectura de códigos de barras USB o Bluetooth.
 - Registro de ventas en efectivo, con tarjeta o por transferencia.
+- Creación automática de una orden para cocina al cobrar cada venta.
+- Módulo independiente de cocina en el puerto `3001`, con cuentas y PIN administrados desde **Usuarios**. Las órdenes se separan en preparación, listas y retiradas; las retiradas desaparecen de activas después de cinco minutos. El historial muestra las ventas de hoy desde el último cierre e indica cuántas órdenes atendidas hay en el periodo.
+- Avisos sonoros diferentes al recibir una orden y al marcarla como lista. Pulsa **Probar sonido** en la pantalla de cocina para confirmar que se escucha y habilitar los avisos en el navegador; las órdenes que lleguen mientras el sonido está bloqueado quedan pendientes.
 - Control de existencias, cantidades y devoluciones de inventario al cancelar una venta.
 - Folio de ticket consecutivo que empieza en `1` cada día; el próximo número aparece en **Venta actual**.
 - Historial de ventas por fecha e impresión de tickets.
@@ -58,6 +65,9 @@ Cambia estos PIN en **Usuarios** después de la instalación. Los vendedores pue
 ```text
 SistemaPOS/
 ├── public/                   Interfaz web y recursos estáticos
+│   ├── cocina.html           Pantalla independiente para cocina
+│   ├── cocina.js             Inicio de sesión y órdenes de cocina
+│   └── cocina.css            Estilos de la pantalla de cocina
 ├── datos/                    Base de datos local y respaldos (no versionados)
 ├── server.js                 Servidor HTTP, API y esquema SQLite
 ├── INICIAR.bat               Inicia manualmente el punto de venta
@@ -72,6 +82,7 @@ Comprueba la sintaxis del servidor y de la interfaz desde la carpeta del proyect
 ```powershell
 node --check server.js
 node --check public\app.js
+node --check public\cocina.js
 ```
 
 El servidor no requiere un paso de compilación ni instalación de dependencias de npm.

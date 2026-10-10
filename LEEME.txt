@@ -17,6 +17,17 @@ USAR
     la direccion que aparece en Menu > Ajustes, por ejemplo
     http://192.168.1.50:3000
     Tip: en el navegador usa "Agregar a pantalla de inicio".
+  - Cocina: en Menu > Ajustes copia la direccion de cocina (puerto 3001).
+    El administrador crea las cuentas y PIN en Menu > Usuarios.
+    Cada venta cobrada aparece en ordenes activas; cocina puede marcarla
+    como lista y retirada. Las retiradas salen de ordenes activas despues
+    de 5 minutos. El historial muestra las ventas de hoy hasta cerrar caja.
+    La cocina suena al recibir una orden y al marcarla como lista. Pulsa
+    "Probar sonido" en la pantalla para habilitar los avisos y confirmar
+    que se escucha; las ordenes pendientes sonaran al activar el audio.
+    Para iniciar un periodo nuevo, usa "Cerrar caja y reiniciar historial
+    de cocina" en Menu > Corte de caja. Imprimir no cierra la caja y las
+    ventas y reportes anteriores se conservan.
 
 PINES INICIALES  (cambialos en Menu > Usuarios)
   Administrador: 1234

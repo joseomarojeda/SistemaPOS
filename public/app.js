@@ -586,6 +586,7 @@ function editarProducto(p, productos) {
 async function vistaCorte() {
   const desde = estado.corteDesde || hoy();
   const hasta = estado.corteHasta || desde;
+  const puedeCerrarCaja = desde === hoy() && hasta === hoy();
   const c = await api(`/corte?desde=${desde}&hasta=${hasta}`);
   const ganancia = c.productos.reduce((s, p) => s + p.ganancia, 0);
   const metodo = (m) => c.porMetodo.find((x) => x.metodo === m)?.total || 0;
@@ -595,7 +596,9 @@ async function vistaCorte() {
       <label style="margin:0">Del</label><input type="date" id="desde" value="${desde}" style="max-width:180px">
       <label style="margin:0">al</label><input type="date" id="hasta" value="${hasta}" style="max-width:180px">
       <button class="btn" id="imprimir-corte">🖨 Imprimir</button>
+      <button class="btn btn-peligro" id="cerrar-caja" ${puedeCerrarCaja ? '' : 'disabled'}>Cerrar caja y reiniciar historial de cocina</button>
     </div>
+    <p class="muted">${puedeCerrarCaja ? 'Imprimir solo genera el reporte. Cerrar caja inicia un nuevo historial de órdenes de cocina.' : 'Para cerrar caja y reiniciar el historial de cocina, selecciona únicamente la fecha de hoy.'}</p>
     <div class="tarjetas">
       <div class="tarjeta"><div class="t">Total vendido</div><div class="v num">${dinero(c.resumen.total)}</div></div>
       <div class="tarjeta"><div class="t">Ventas</div><div class="v num">${c.resumen.ventas}</div></div>
@@ -614,6 +617,20 @@ async function vistaCorte() {
     ${c.bajos.length ? `<div class="seccion panel"><h3>⚠️ Existencia baja</h3>${c.bajos.map((b) => `<span class="etiqueta rojo" style="margin:3px">${esc(b.nombre)}: ${b.existencia}</span>`).join('')}</div>` : ''}`;
   $('#desde').addEventListener('change', (e) => { estado.corteDesde = e.target.value; if (estado.corteHasta < e.target.value) estado.corteHasta = e.target.value; vistaCorte(); });
   $('#hasta').addEventListener('change', (e) => { estado.corteHasta = e.target.value; vistaCorte(); });
+  $('#cerrar-caja').addEventListener('click', async (e) => {
+    if (!puedeCerrarCaja) return;
+    if (!confirm('¿Cerrar la caja de hoy e iniciar un nuevo historial de cocina? Las ventas y los reportes no se borrarán.')) return;
+    const boton = e.currentTarget;
+    boton.disabled = true;
+    try {
+      await api('/corte/cerrar', { method: 'POST' });
+      aviso('Caja cerrada. El historial de cocina se reinició.');
+      await vistaCorte();
+    } catch (err) {
+      aviso(err.message, 'error');
+      boton.disabled = false;
+    }
+  });
   $('#imprimir-corte').addEventListener('click', () => {
     $('#ticket-impresion').innerHTML = `<div class="ticket"><div class="c"><strong>${esc(estado.ajustes.negocio)}</strong><br>CORTE DE CAJA<br>${desde}${hasta !== desde ? ' al ' + hasta : ''}</div><hr>
       <table><tr><td>Ventas</td><td class="der">${c.resumen.ventas}</td></tr>
@@ -627,20 +644,37 @@ async function vistaCorte() {
 
 // ---------- Usuarios ----------
 async function vistaUsuarios() {
-  const usuarios = await api('/usuarios');
+  const [usuarios, cocineros, info] = await Promise.all([api('/usuarios'), api('/cocineros'), api('/info')]);
   $('#vista').innerHTML = `
     <h2>Usuarios</h2>
     <div class="fila" style="margin-bottom:12px"><span class="muted crece">Cada persona entra con su propio PIN y sus ventas quedan registradas a su nombre.</span>
       <button class="btn btn-primario" id="nuevo">+ Nuevo usuario</button></div>
     <div class="panel tabla-wrap"><table>
       <thead><tr><th>Nombre</th><th>PIN</th><th>Rol</th><th></th></tr></thead>
-      <tbody>${usuarios.map((u) => `<tr class="clic ${u.activo ? '' : 'cancelada'}" data-id="${u.id}"><td><strong>${esc(u.nombre)}</strong></td><td>${'•'.repeat(u.pin.length)}</td>
+      <tbody id="usuarios-pos">${usuarios.map((u) => `<tr class="clic ${u.activo ? '' : 'cancelada'}" data-id="${u.id}"><td><strong>${esc(u.nombre)}</strong></td><td>${'•'.repeat(u.pin.length)}</td>
         <td><span class="etiqueta ${u.rol === 'admin' ? 'verde' : ''}">${u.rol === 'admin' ? 'Administrador' : 'Vendedor'}</span></td><td>${u.activo ? '' : 'Inactivo'}</td></tr>`).join('')}</tbody>
-    </table></div>`;
+    </table></div>
+    <section class="seccion">
+      <div class="fila">
+        <div class="crece"><h2>Usuarios de cocina</h2><p class="muted">Estas cuentas solo pueden abrir la pantalla de cocina, en un puerto separado.</p></div>
+        <button class="btn btn-primario" id="nuevo-cocinero">+ Nuevo usuario de cocina</button>
+      </div>
+      <div class="panel tabla-wrap"><table>
+        <thead><tr><th>Nombre</th><th>PIN</th><th>Acceso</th></tr></thead>
+        <tbody id="usuarios-cocina">${cocineros.map((u) => `<tr class="clic ${u.activo ? '' : 'cancelada'}" data-id="${u.id}"><td><strong>${esc(u.nombre)}</strong></td><td>${'•'.repeat(u.pin.length)}</td><td>${u.activo ? 'Activo' : 'Inactivo'}</td></tr>`).join('') || '<tr><td colspan="3" class="vacio">Aún no hay usuarios de cocina.</td></tr>'}</tbody>
+      </table></div>
+      <p class="muted">Abrir cocina: <a href="${esc(`http://${location.hostname}:${info.puertoCocina}`)}" target="_blank" rel="noopener noreferrer">${esc(`http://${location.hostname}:${info.puertoCocina}`)}</a>
+        ${info.direccionesCocina.map((d) => ` · <a href="${esc(d)}" target="_blank" rel="noopener noreferrer">${esc(d)}</a>`).join('')}</p>
+    </section>`;
   $('#nuevo').addEventListener('click', () => editarUsuario({ rol: 'vendedor', activo: 1 }));
-  $('tbody').addEventListener('click', (e) => {
+  $('#usuarios-pos').addEventListener('click', (e) => {
     const tr = e.target.closest('tr[data-id]');
     if (tr) editarUsuario(usuarios.find((u) => u.id === Number(tr.dataset.id)));
+  });
+  $('#nuevo-cocinero').addEventListener('click', () => editarCocinero({ activo: 1 }));
+  $('#usuarios-cocina').addEventListener('click', (e) => {
+    const tr = e.target.closest('tr[data-id]');
+    if (tr) editarCocinero(cocineros.find((u) => u.id === Number(tr.dataset.id)));
   });
 }
 
@@ -669,6 +703,30 @@ function editarUsuario(u) {
   };
 }
 
+function editarCocinero(u) {
+  const caja = abrirModal(`
+    <h2>${u.id ? 'Editar usuario de cocina' : 'Nuevo usuario de cocina'} <button class="icon-btn" data-cerrar aria-label="Cerrar">✕</button></h2>
+    <form id="form">
+      <label>Nombre</label><input name="nombre" required value="${esc(u.nombre || '')}">
+      <label>PIN exclusivo de cocina (4 a 8 números)</label><input name="pin" required inputmode="numeric" pattern="\\d{4,8}" value="${esc(u.pin || '')}">
+      <label class="check"><input type="checkbox" name="activo" ${u.activo ? 'checked' : ''}> Activo</label>
+      <div class="botones"><button type="button" class="btn" data-cerrar>Cancelar</button><button class="btn btn-primario">Guardar</button></div>
+    </form>`);
+  const form = $('#form', caja);
+  caja.onclick = (e) => { if ('cerrar' in e.target.dataset) cerrarModal(); };
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const d = Object.fromEntries(new FormData(form));
+    d.activo = form.activo.checked;
+    try {
+      await api('/cocineros' + (u.id ? '/' + u.id : ''), { method: u.id ? 'PUT' : 'POST', body: d });
+      aviso('Usuario de cocina guardado');
+      cerrarModal();
+      vistaUsuarios();
+    } catch (err) { aviso(err.message, 'error'); }
+  };
+}
+
 // ---------- Ajustes ----------
 async function vistaAjustes() {
   const a = estado.ajustes;
@@ -686,6 +744,9 @@ async function vistaAjustes() {
       <p class="muted">Conecta el dispositivo al mismo wifi que esta computadora y abre en su navegador:</p>
       ${info.direcciones.map((d) => `<p><strong style="font-size:1.2rem">${esc(d)}</strong></p>`).join('') || '<p>No se detectó una red. Revisa que la computadora esté conectada al wifi.</p>'}
       <p class="muted">Tip: en el navegador del celular usa "Agregar a pantalla de inicio" para abrirlo como una app.</p>
+      <h3 class="seccion">Pantalla de cocina (puerto ${info.puertoCocina})</h3>
+      <p><a href="${esc(`http://${location.hostname}:${info.puertoCocina}`)}" target="_blank" rel="noopener noreferrer">Abrir pantalla de cocina</a></p>
+      ${info.direccionesCocina.map((d) => `<p><strong style="font-size:1.2rem">${esc(d)}</strong></p>`).join('') || '<p class="muted">No se detectó una red para conectar la pantalla de cocina.</p>'}
     </div>`;
   $('#form').onsubmit = async (e) => {
     e.preventDefault();

@@ -38,9 +38,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
 echo [OK] Acceso directo creado; inicio automatico desactivado.
 
 echo.
-echo Abriendo el puerto 3000 en el Firewall para que entren celulares y tablets.
+echo Abriendo los puertos 3000 (POS) y 3001 (cocina) en el Firewall.
 echo Windows pedira permiso de administrador: presiona "Si".
-powershell -NoProfile -Command "Start-Process cmd -Verb RunAs -WindowStyle Hidden -Wait -ArgumentList '/c netsh advfirewall firewall delete rule name=PuntoDeVenta & netsh advfirewall firewall add rule name=PuntoDeVenta dir=in action=allow protocol=TCP localport=3000 profile=any'"
+powershell -NoProfile -Command "Start-Process cmd -Verb RunAs -WindowStyle Hidden -Wait -ArgumentList '/c netsh advfirewall firewall delete rule name=PuntoDeVenta & netsh advfirewall firewall add rule name=PuntoDeVenta dir=in action=allow protocol=TCP localport=3000,3001 profile=any'"
 echo [OK] Firewall configurado.
 
 echo.

@@ -12,5 +12,5 @@ $l.WindowStyle = 7
 $l.Save()
 $auto = Join-Path ([Environment]::GetFolderPath('Startup')) 'Punto de Venta.lnk'
 if (Test-Path -LiteralPath $auto) { Remove-Item -LiteralPath $auto -Force }
-Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -Command "New-NetFirewallRule -DisplayName PuntoDeVenta -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow"'
+Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -Command "Get-NetFirewallRule -DisplayName PuntoDeVenta -ErrorAction SilentlyContinue | Remove-NetFirewallRule; New-NetFirewallRule -DisplayName PuntoDeVenta -Direction Inbound -Protocol TCP -LocalPort 3000,3001 -Action Allow"'
 Write-Host 'Instalación lista. Inicia el sistema desde el icono Punto de Venta del escritorio.'
