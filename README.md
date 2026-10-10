@@ -26,7 +26,18 @@ La instalación **no inicia el servidor ni configura el inicio automático con W
 
 En esta computadora, abre <http://localhost:3000>. Para acceder desde un celular o tableta, usa la dirección de red local que muestra el servidor, con el mismo puerto (por ejemplo, `http://192.168.1.50:3000`).
 
-La pantalla de cocina se abre en <http://localhost:3001>. Desde otro dispositivo de la misma red, usa la dirección de cocina que muestra el servidor o la sección **Usuarios** del POS (por ejemplo, `http://192.168.1.50:3001`).
+### Acceso al módulo de cocina
+
+El POS y cocina son dos pantallas separadas: el POS se abre en el puerto `3000` y cocina en el puerto `3001`. Al iniciar **Punto de Venta**, ambos servidores arrancan juntos. En la computadora principal, abre <http://localhost:3001>; desde otro dispositivo conectado a la misma red Wi-Fi, abre la dirección de cocina que muestra el servidor, por ejemplo `http://192.168.1.50:3001`.
+
+Antes de iniciar sesión en cocina, el administrador debe crear una cuenta propia para cada cocinero:
+
+1. Entra al POS en <http://localhost:3000> con un usuario administrador.
+2. Abre **Usuarios** y pulsa **Nuevo usuario de cocina**.
+3. Escribe el nombre, asigna un PIN de 4 a 8 números y guarda el usuario.
+4. Abre la pantalla de cocina en el puerto `3001` e inicia sesión con ese PIN.
+
+Las cuentas de cocina son independientes de las cuentas del POS. No hay un PIN de cocina predeterminado; un PIN no puede compartirse entre una cuenta del POS y una de cocina.
 
 En **Corte de caja**, el botón **Cerrar caja y reiniciar historial de cocina** cierra el periodo del día e inicia uno nuevo para el historial de cocina. Solo el administrador puede cerrar caja. Imprimir el reporte no cierra la caja. El cierre no borra ventas ni reportes; conserva los registros en la base de datos.
 
@@ -37,7 +48,7 @@ En **Corte de caja**, el botón **Cerrar caja y reiniciar historial de cocina** 
 | Administrador | `1234` |
 | Vendedor | `1111` |
 
-Cambia estos PIN en **Usuarios** después de la instalación. Desde esa misma sección, el administrador puede crear cuentas independientes para cocina; cada una tiene su propio PIN y solo permite acceder a la pantalla del puerto 3001. Los vendedores pueden registrar ventas y consultar sus ventas; el administrador también puede administrar productos, clientes, usuarios y ajustes, y consultar los cortes de caja.
+Cambia estos PIN en **Usuarios** después de la instalación. Los vendedores pueden registrar ventas y consultar sus ventas; el administrador también puede administrar productos, clientes, usuarios y ajustes, y consultar los cortes de caja. Las cuentas de cocina se crean por separado, siguiendo los pasos de **Acceso al módulo de cocina**.
 
 ## Funcionalidades
 
