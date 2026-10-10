@@ -5,12 +5,15 @@
   --line: #e5e9ed;
   --paper: #fff;
   --canvas: #f2f4f5;
+  --primary: #b91c1c;
+  --primary-dark: #991b1b;
+  --primary-soft: #fef2f2;
   --green: #15803d;
   --green-soft: #dcfce7;
   --amber: #b45309;
   --amber-soft: #fef3c7;
-  --red: #b42318;
-  --red-soft: #fee4e2;
+  --red: #b91c1c;
+  --red-soft: #fef2f2;
 }
 
 * { box-sizing: border-box; }
@@ -23,14 +26,15 @@ button { cursor: pointer; }
 .error { min-height: 1.4em; color: var(--red); }
 .button { min-height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 9px 15px; background: var(--paper); color: var(--ink); font-weight: 650; }
 .button:disabled { opacity: .55; cursor: wait; }
-.button.primary { border-color: var(--ink); background: var(--ink); color: #fff; }
+.button.primary { border-color: var(--primary); background: var(--primary); color: #fff; }
+.button.primary:hover { border-color: var(--primary-dark); background: var(--primary-dark); }
 .button.success { border-color: var(--green); background: var(--green); color: #fff; }
 .button.light { border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.1); color: #fff; }
 .wide { width: 100%; }
 
-.login { min-height: 100dvh; display: grid; place-items: center; padding: 20px; background: radial-gradient(ellipse at 50% 0, #35414c, #151c23 70%); }
+.login { min-height: 100dvh; display: grid; place-items: center; padding: 20px; background: linear-gradient(160deg, var(--primary), #7f1d1d); }
 .login-card { width: min(100%, 390px); padding: 34px; border: 1px solid rgba(255,255,255,.5); border-radius: 20px; background: var(--paper); box-shadow: 0 24px 80px rgba(0,0,0,.25); }
-.brand-mark { display: grid; width: 54px; height: 54px; place-items: center; border-radius: 16px; background: var(--ink); color: #fff; font-size: 1.65rem; font-weight: 800; }
+.brand-mark { display: grid; width: 54px; height: 54px; place-items: center; border-radius: 16px; background: var(--primary); color: #fff; font-size: 1.65rem; font-weight: 800; }
 .brand-mark.small { width: 40px; height: 40px; border-radius: 12px; font-size: 1.25rem; }
 .eyebrow { margin: 20px 0 5px; color: var(--muted); font-size: .76rem; font-weight: 750; letter-spacing: .12em; }
 .login-card h1, .heading h1 { margin: 0; font-size: clamp(1.45rem, 4vw, 2rem); letter-spacing: -.035em; }
@@ -40,7 +44,7 @@ button { cursor: pointer; }
 .login-card input { font-size: 1.2rem; letter-spacing: .3em; }
 .login-card .button { margin-top: 8px; }
 
-.topbar { position: sticky; top: 0; z-index: 5; display: flex; min-height: 68px; align-items: center; justify-content: space-between; gap: 16px; padding: 10px max(22px, calc((100vw - 1320px) / 2)); background: var(--ink); color: #fff; box-shadow: 0 4px 18px rgba(23,32,42,.16); }
+.topbar { position: sticky; top: 0; z-index: 5; display: flex; min-height: 68px; align-items: center; justify-content: space-between; gap: 16px; padding: 10px max(22px, calc((100vw - 1320px) / 2)); background: var(--primary); color: #fff; box-shadow: 0 4px 18px rgba(127,29,29,.2); }
 .topbar-title, .topbar-actions { display: flex; align-items: center; gap: 12px; }
 .topbar-title strong, .topbar-title .subtitle { display: block; }
 .topbar-title strong { font-size: 1.05rem; }
@@ -55,20 +59,20 @@ main { width: min(100% - 36px, 1320px); margin: 28px auto 60px; }
 .heading .muted { font-size: .85rem; }
 .tabs { display: flex; gap: 8px; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
 .tab { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--muted); font-weight: 700; }
-.tab.active { border-bottom-color: var(--ink); color: var(--ink); }
+.tab.active { border-bottom-color: var(--primary); color: var(--primary); }
 .count { display: grid; min-width: 24px; height: 24px; place-items: center; border-radius: 99px; background: #e5e9ed; color: var(--ink); font-size: .8rem; }
 .orders { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); align-items: start; gap: 14px; }
 .order-groups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; gap: 16px; }
 .order-group { min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.56); }
 .order-group h2 { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 12px; font-size: 1rem; }
-.order-group.preparing h2 { color: var(--amber); }
+.order-group.preparing h2 { color: var(--primary); }
 .order-group.ready h2 { color: var(--green); }
 .order-group.retired h2 { color: var(--muted); }
 .group-orders { display: grid; gap: 12px; }
 .group-empty, .group-hint { margin: 0; color: var(--muted); font-size: .84rem; }
 .group-hint { margin-top: 12px; }
 .history-note { margin: 0 0 14px; color: var(--muted); }
-.order-card { overflow: hidden; border: 1px solid var(--line); border-top: 5px solid #64748b; border-radius: 14px; background: var(--paper); box-shadow: 0 2px 8px rgba(23,32,42,.04); }
+.order-card { overflow: hidden; border: 1px solid var(--line); border-top: 5px solid var(--primary); border-radius: 14px; background: var(--paper); box-shadow: 0 2px 8px rgba(23,32,42,.04); }
 .order-card.listo { border-top-color: var(--green); }
 .order-card.retirado { border-top-color: #98a2b3; }
 .order-card.cancelado { border-top-color: var(--red); }
@@ -77,7 +81,7 @@ main { width: min(100% - 36px, 1320px); margin: 28px auto 60px; }
 .order-id { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
 .order-id strong { font-size: 1.2rem; }
 .status { border-radius: 999px; padding: 3px 9px; background: #edf0f2; color: #344054; font-size: .75rem; font-weight: 750; }
-.status.preparando { background: var(--amber-soft); color: var(--amber); }
+.status.preparando { background: var(--primary-soft); color: var(--primary); }
 .status.listo { background: var(--green-soft); color: var(--green); }
 .status.cancelado { background: var(--red-soft); color: var(--red); }
 .order-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 0 17px 12px; color: var(--muted); font-size: .85rem; }
